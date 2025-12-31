@@ -1,0 +1,1 @@
+# skillsmp-stock-analyzer
