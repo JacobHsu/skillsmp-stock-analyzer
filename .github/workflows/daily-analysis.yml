@@ -1,0 +1,60 @@
+name: 台股每日技術分析
+
+on:
+  # 每個交易日上午 9:30 (台灣時間) = UTC 1:30
+  schedule:
+    - cron: '30 1 * * 1-5'  # 週一至週五 UTC 1:30
+
+  # 允許手動觸發
+  workflow_dispatch:
+
+# 設定權限以便推送到 repo
+permissions:
+  contents: write
+
+jobs:
+  analyze-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout 程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: 安裝相依套件
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 執行股票分析並生成報告
+        run: |
+          python generate_report.py
+        env:
+          TZ: Asia/Taipei
+
+      - name: 檢查是否有變更
+        id: check_changes
+        run: |
+          git diff --quiet docs/index.html || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: 提交並推送報告
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add docs/index.html
+          git commit -m "📊 更新每日台股技術分析報告 $(TZ=Asia/Taipei date +%Y-%m-%d)"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 顯示完成訊息
+        run: |
+          echo "✅ 台股技術分析報告已更新"
+          echo "📅 執行時間: $(TZ=Asia/Taipei date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "📊 報告位置: docs/index.html"
